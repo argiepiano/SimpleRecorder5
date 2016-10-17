@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SimpleRecorder JS</title>
+      <script src="https://www.gstatic.com/firebasejs/3.2.1/firebase.js"></script>
+      <script src="https://code.jquery.com/jquery-3.1.0.min.js"   integrity="sha256-cCueBR6CsyA4/9szpPfrX3s49M9vUU5BgtiJj06wt/s="   crossorigin="anonymous"></script>
+<link href="https://maxcdn.bootstrapcdn.com/bootswatch/3.3.7/slate/bootstrap.min.css" rel="stylesheet" integrity="sha384-RpX8okQqCyUNG7PlOYNybyJXYTtGQH+7rIKiVvg1DLg6jahLEk47VvpUyS+E2/uJ" crossorigin="anonymous">
+
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+      
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.11.2/css/bootstrap-select.min.css">  
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.11.2/js/bootstrap-select.min.js"></script>
+
+      <script src="validator.min.js"></script>
+      <script src="bootbox.min.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.5/handlebars.min.js"></script>
+      
+      <script src="SREvent.js"></script>
+      <script src="SRUser.js"></script>
+      <script src="SRViewController.js"></script>
+      <script src="SRModel.js"></script>
+      <script src="SRMIDISystem.js"></script>
+      <script src="SRSongManager.js"></script>
+      <script src="SRSongViewController.js"></script>
+      <script src="SRMyStudents.js"></script>
+      <!-- script src="FileView.js" --><!-- /script -->
+      <script>
+      "use strict";
+      // Initialize Firebase
+      var config = {
+        apiKey: "AIzaSyB7shxA5Q37tNnio0dV94VcJ9ADt2060hU",
+        authDomain: "sample-project-d94e2.firebaseapp.com",
+        databaseURL: "https://sample-project-d94e2.firebaseio.com",
+//        storageBucket: "sample-project-d94e2.appspot.com",
+      };
+      firebase.initializeApp(config);
+      
+      // Globals
+      var currentUser, currentUserInfo, pathToSongs, pathToUser, pathToSongFiles, midisystem;
+      
+      // Begin app
+      var initApp = function() {
+        window.addEventListener("beforeunload", function() {
+          firebase.auth().signOut();
+        });
+        
+        // Create inactivity alert
+        var userInactivityAlert = new UserInactivityAlert($("#inactivityalert"));  
+
+        // Add listener to log in form. @TODO All these functions will be moved to a view/controller model later on
+        $('#login').on('submit',function(e) {
+          e.preventDefault();
+          var username=$("#username").val();
+          var passw = $("#password").val()
+          firebase.auth().signInWithEmailAndPassword(username, passw).catch(function(error) {
+            bootbox.alert("<strong>Error:</strong> "+error.message + " (Error code: " + error.code+")");
+          });
+        });
+        
+        document.querySelector("#sign-up").addEventListener("click", function (e) {
+          e.preventDefault();
+          var signUp = new SignUp();
+          $('#login').hide();
+          signUp.render();
+        });
+        
+        document.querySelector("#reset-password").addEventListener("click", function (e) {
+          e.preventDefault();
+          var passReset = new UserPasswordReset();
+          $('#login').hide();
+          passReset.render();          
+        });
+        
+        // start midi system
+        navigator.requestMIDIAccess && navigator.requestMIDIAccess().then(
+          function success(midiAccess) {                
+                // Initialize MIDI system
+                midisystem = new MidiSystem(midiAccess);
+                midisystem.init();
+                console.log("Input "+midisystem.selectedMidiInput.name);
+                console.log("Output "+midisystem.selectedMidiOutput.name);
+          },
+          function failure (err) {// Failed accessing MIDI
+                console.log("Error initializing MIDI!");
+                // @TODO Warn user that MIDI is not available. Stop app?
+          }
+        );  
+          
+        // Detects sign in/sign out. @TODO move this to the global controller?
+        firebase.auth().onAuthStateChanged(function(user) {
+          if (user) {
+            // User is signed in.
+            currentUser = user;
+            pathToUser = 'users/' + currentUser.uid;
+            pathToSongs = pathToUser + '/songs';
+            pathToSongFiles = 'songs';
+            
+            // Empty ALL modals, since we are appending new ones below
+            $("#modals").empty();
+            
+            // enable inactivity alert
+            userInactivityAlert.enable();
+                        
+            // prepare interface - this may need to go into a viewcontroller of its own.
+            $("#login").hide();
+            $("#main").show('fast');
+            $("#myNavbar").show();
+            $("#user-menu").removeClass("hidden");
+            
+            firebase.database().ref(pathToUser).child("role/instructor").once("value").then(
+              function (snapshot) {
+                if (snapshot.val()) {
+                  $("#mystudentsmenu").show();
+                } else {
+                  $("#mystudentsmenu").hide();
+                }
+              }
+            );
+            
+            $("#recordercontainer").show('fast');
+            $("#mysongscontainer").hide();
+
+            // create user account form
+            var userAccountForm = new UserAccountForm($("#modals"));
+            
+            // create user admin menu
+            var userMenu = new UserMenu(userAccountForm, $("#user-menu"));
+            userMenu.show();
+           
+            // Create recorders' model and view/controller
+            var model1 = new SRModel();
+            var view1 = new SRView(model1, $("#recorder1placeholder"), {title: "Recorder 1"});
+            var controller1 = new SRController (model1, view1);
+
+            var model2 = new SRModel();
+            var view2 = new SRView(model2, $("#recorder2placeholder"), {title: "Recorder 2"});
+            var controller2 = new SRController (model2, view2);  
+
+            var model3 = new SRModel();
+            var view3 = new SRView(model3, $("#recorder3placeholder"), {title: "Recorder 3"});
+            var controller3 = new SRController (model3, view3);
+            
+            var model4 = new SRModel();
+            var view4 = new SRView(model4, $("#recorder4placeholder"), {title: "Recorder 4"});
+            var controller4 = new SRController (model4, view4);  
+            
+            // Create songs model and view/controller
+            var songManager1 = new SRSongManager();
+            var songView1 = new SRSongView(songManager1,{target: $("#mysongscontainer"),
+                                           pathToSongs: pathToSongs,
+                                           pathToSongFiles: pathToSongFiles,
+                                           pathToUser: pathToUser
+                                });
+            var songController1 = new SRSongController(songManager1, songView1);
+            
+            // Create student list model and view/controller
+            var myStudents = new SRMyStudents();
+            var myStudentsView = new SRMyStudentsView(myStudents, $("#mystudentscontainer"));
+            var myStudentsController = new SRMyStudentsController(myStudents, myStudentsView);
+            
+            // Nav bar triggers
+            $("#recordermenu").on("click", function(e) {
+              console.log("Recorder menu clicked");
+              $("#recordermenu").addClass("active");
+              $("#mysongsmenu").removeClass("active");
+              $("#mystudentsmenu").removeClass("active");
+              $("#main").children().hide()
+              $("#recordercontainer").show('fast');
+            });                  
+    
+            $("#mysongsmenu").on("click", function(e) {
+              console.log("My songs menu clicked");
+              $("#recordermenu").removeClass("active");
+              $("#mysongsmenu").addClass("active");
+              $("#mystudentsmenu").removeClass("active");
+              $("#main").children().hide()
+              songView1.render(function(){$("#mysongscontainer").show('fast');});
+            });
+              
+            $("#mystudentsmenu").on("click", function(e) {
+              console.log("My students menu clicked");
+              $("#recordermenu").removeClass("active");
+              $("#mysongsmenu").removeClass("active");
+              $("#mystudentsmenu").addClass("active");
+              $("#main").children().hide()
+              myStudentsView.render();
+              $("#mystudentscontainer").show("fast");
+            });
+            
+            $("#logoutbutton").removeClass("hidden").on("click", function(e) {
+              console.log("Log out");
+              userInactivityAlert.disable();
+              firebase.auth().signOut();
+            }); 
+               
+          } else {
+             // User is signed out.
+              console.log("logged out")
+              $("#user-menu").addClass("hidden");
+              
+              // empty containers
+              $("#mysongscontainer").empty();
+              $("#mystudentscontainer").empty();
+              $("#mystudentsongcontainer").empty();
+              
+              // disable event listeners for navbar
+              $("#recordermenu").off().addClass("active");;
+              $("#mysongsmenu").off().removeClass("active");
+              $("#mystudentsmenu").off().removeClass("active");
+              
+              $("#myNavbar").hide();
+               
+              $("#logoutbutton").addClass("hidden").off();
+              $("#main").hide().find("*").off(); //turn off all recorder listeners 
+              $("#login").show('fast');
+              $("#modals").find("*").off();  // turn off all modal listeners
+          }
+        }, function(error) {
+          console.log(error);
+        });
+      };
+    </script>
+  </head>
+  <body>
+    <div id="page">
+      <nav class="navbar navbar-default">
+        <div class="container-fluid">
+          <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#myNavbar">
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+            </button>
+            <a href="#" class="navbar-left"><img src="SRicon.jpg" width="42"></a>
+            <a href="#" class="navbar-brand">&nbsp;SimpleRecorder JS</a>
+            
+          </div>
+          <div class="collapse navbar-collapse" id="myNavbar">
+            <ul class="nav navbar-nav">
+              <li class="active" id="recordermenu"><a href="#" >Recorder</a></li>
+              <li id="mysongsmenu"><a href="#" >My songs</a></li>
+              <li id="mystudentsmenu"><a href="#">My students</a></li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+                <li class="dropdown">
+                    <a href="#" class="dropdown-toggle" id="midi-menu" data-toggle="dropdown">
+                        <strong>MIDI</strong>
+                        <span class="glyphicon glyphicon-chevron-down"></span>
+                    </a>
+                    <ul class="dropdown-menu">
+                      <li class="dropdown-header">MIDI In</li>
+                      <li><a href="#" id="midiin">Not connected</a></li>
+                      <li class="dropdown-header">MIDI Out</li>
+                      <li><a href="#" id="midiout">Not connected</a></li>
+                    </ul>
+                </li>
+                <li class="dropdown" id="user-menu">
+                </li>
+                <li><a href="#" id="logoutbutton" class="hidden">Log out</a></li>
+            </ul>
+          </div> <!--- myNavbar -->
+        </div> <!-- container-fluid -->
+      </nav>
+
+      <div id="login" style="display: none;">
+        <div class="container">
+          <h2>Log in</h2>
+          <div class="panel panel-default">
+            <div class="panel-body">
+              <form data-toggle="validator" role="form">
+                <div class="form-group">
+                  <label class="control-label" for="username">Email account:</label>
+                    <input type="email" class="form-control" id="username" data-error="Email address is invalid" required>
+                    <div class="help-block with-errors"></div>
+                </div>
+                <div class="form-group">
+                  <label class="control-label" data-minlength="6" for="password">Password:</label>
+                    <input type="password" class="form-control" id="password" required>
+                </div>
+                <div class="form-group"> 
+                    <button type="submit" id="loginButton" class="btn btn-primary">Log in</button>
+                </div>
+              </form>
+            </div>
+          </div>
+          <p><a href="#" class="btn btn-default" id="sign-up">Sign up</a>&nbsp;<a href="#" class="btn btn-warning" id="reset-password">Reset password</a></p>
+        </div>    
+      </div>
+      
+      <div id="main">
+        <!-- Recorders -->   
+        <div id="recordercontainer"> 
+          <div class="container">
+            <div class="row">
+              <div class="col-md-6">
+                <div id="recorder1placeholder"></div>
+              </div> <!-- col -->
+              <div class="col-md-6">
+                <div id="recorder2placeholder"></div>
+              </div> <!-- col -->
+            </div> <!-- row -->
+            <div class="row">
+              <div class="col-md-6">
+                <div id="recorder3placeholder"></div>
+              </div> <!-- col -->
+              <div class="col-md-6">
+                <div id="recorder4placeholder"></div>
+              </div> <!-- col -->
+            </div> <!-- row -->
+          </div> <!-- container -->
+        </div> <!-- recordercontainer -->
+        
+        <div id="mysongscontainer"></div>
+        <div id="mystudentscontainer"></div>
+        <div id="mystudentsongcontainer"></div>
+        
+      </div> <!-- main -->
+      
+      <div id="modals"></div>
+      <div id="inactivityalert"></div> <!-- inactivityalert . This is where this modal dialog will be place -->
+      <script>
+       "use strict";
+        $(function() {
+          if (!!window.chrome && !!window.chrome.webstore) {
+            initApp();
+          } else {
+            bootbox.alert("Oops! This app only works on <strong>Chrome browser!</strong>")
+          }
+         
+        });
+      </script>
+  </body>
+</html>
