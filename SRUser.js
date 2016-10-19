@@ -17,6 +17,7 @@ function UserMenu(form, target) {
   
   _this._target.on("click", "#account", function(e) {
     console.log("clicked account");
+    spinner.spin(document.body);
     e.preventDefault();
     _this._form.render();
   });
@@ -126,6 +127,7 @@ function UserAccountForm(target) {
   this.render = function() {
     firebase.database().ref(pathToUser).once('value').then(
       function (snapshot) {
+        spinner.stop()
         var user = snapshot.val();
         if (user) {
           $("#userName").val(user.name);
@@ -210,7 +212,6 @@ function UserInactivityAlert(target) {
   }
   
   function resetTimer() {
-    console.log("reset timer "+timeout)
     clearTimeout(t);
     t = setTimeout(_this.show, timeout);    
   }

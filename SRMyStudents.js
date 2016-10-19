@@ -67,11 +67,13 @@ function SRMyStudentsView(model, target) {
         htmlOutput = htmlOutput+"<div class='container-fluid'><h4>"+prop+"</h4>"+templateScript({students: _this.model.myStudentList[prop]})+"</div>";
       }
     }
+    spinner.stop();
     _this.target.html("<div class='list-group'>"+htmlOutput+"</div>");
   }
   
   
   this.showStudentSongs = function(userID){
+    spinner.spin(document.body);
     $("#mystudentsongcontainer").off('click', '.play');
     $("#mystudentsongcontainer").off('click', '.stop-playing');
     $("#mystudentsongcontainer").off('click', '.download');

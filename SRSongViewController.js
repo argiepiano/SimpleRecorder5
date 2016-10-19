@@ -63,6 +63,7 @@ function SRSongView(manager, params) {
     var elem = $("<div/>" , {class: 'list-group'});
     firebase.database().ref(_this._pathToSongs).once('value').then(
       function (snapshot) {
+        spinner.stop();
         if (snapshot.val()) {
           var songs = snapshot.val();
           var songkeys = Object.keys(songs);
@@ -82,6 +83,7 @@ function SRSongView(manager, params) {
         }
       },
       function failure(err) {
+        spinner.stop();
         console.log("Error getting songs: "+err);
         elem.html('<div class="list-group-item list-group-item-action"><h5>'+ 'No songs found'+'</h5></div>');
         _this._target.html(elem);

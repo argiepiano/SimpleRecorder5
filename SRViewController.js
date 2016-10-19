@@ -6,6 +6,7 @@ function SRView(model, target, params) {
   _this._model = model;
   _this._target = target;
   _this._params = params;
+  _this._idle_message = "Empty";
   
   
 // Create UI
@@ -37,7 +38,6 @@ function SRView(model, target, params) {
   
   _this._target.find(".saveSong").on("click", function() {
     console.log("Saved button clicked");
-    console.log($("#"+_this._modalID));
     $("#"+_this._modalID).modal('show');
   });
   
@@ -47,24 +47,26 @@ function SRView(model, target, params) {
     var description = $("#"+_this._modalID).find(".songDescription").val();
     console.log("title and description "+title +" "+ description)
     $("#"+_this._modalID).modal('hide');
+    _this._idle_message = "Saved";
+    _this._target.find(".current-state").html(_this._idle_message);
     _this.saveSongInfoSubmitted.notify({title: title, description: description});
   });
   
 
   // Create model listeners for state changes  
   this._model.idle.attach(function() {
-    _this._target.find(".current-state").html("Idle");
+    _this._target.find(".current-state").html(_this._idle_message);
     _this._target.find(".play").blur();
   });  
   
   this._model.recording.attach( function() {
+    _this._idle_message = "<b>NOT saved</b>";
     _this._target.find(".current-state").html("Recording...");
   });
   
   this._model.playing.attach(function() {
     _this._target.find(".current-state").html("Playing...");
   })
-  // template
   
 }
 
@@ -108,8 +110,6 @@ function SRController(model, view) {
       );
     }
   });
-
-  
 }
 
 
@@ -129,11 +129,11 @@ var recorderUI = Handlebars.compile(`
 	      </p>
 	      <p>
 		<div class="text-center">
-		  <div class="btn-group" role="group">
-		    <button class="btn btn-default btn-sm encode">Download</button>
+		  <!-- div class="btn-group" role="group" -->
+		    <!-- button class="btn btn-default btn-sm encode">Download</button -->
 		    <button class="btn btn-default btn-sm saveSong">Save</button>
-		  </div>
-		  <p class="current-state">Idle</p>
+		  <!-- /div -->
+		  <p class="current-state">Empty</p>
 		</div>
 	      </p>
 	    </div> <!--recorder-->
