@@ -60,6 +60,7 @@
           var username=$("#username").val();
           var passw = $("#password").val()
           firebase.auth().signInWithEmailAndPassword(username, passw).catch(function(error) {
+            spinner.stop();
             bootbox.alert("<strong>Error:</strong> "+error.message + " (Error code: " + error.code+")");
           });
         });

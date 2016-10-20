@@ -131,7 +131,7 @@ var recorderUI = Handlebars.compile(`
 		<div class="text-center">
 		  <!-- div class="btn-group" role="group" -->
 		    <!-- button class="btn btn-default btn-sm encode">Download</button -->
-		    <button class="btn btn-default btn-sm saveSong">Save</button>
+		    <button class="btn btn-default saveSong">Save</button>
 		  <!-- /div -->
 		  <p class="current-state">Empty</p>
 		</div>
