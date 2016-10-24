@@ -120,7 +120,6 @@ function SRModel() {
   
   this.playEvents =  function () {
     internalStop();
-    curTime = performance.now();
     console.log("Playing...");
     _this.playing.notify();
     var eventPointer = 0;
