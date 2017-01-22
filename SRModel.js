@@ -15,7 +15,7 @@ function SRModel() {
   
    function onMidiMessage(receivedEvent) {
     if ((event.data[0] & 0xf0) != 0xF0) {
-	_this.eventObjects.push({data: receivedEvent.data, receivedTime: receivedEvent.receivedTime - recStartTime});
+	_this.eventObjects.push({data: receivedEvent.data, receivedTime: receivedEvent.timeStamp - recStartTime});
     }
   }
   
